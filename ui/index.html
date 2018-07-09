@@ -1,0 +1,145 @@
+<head>
+    <meta charset="UTF-8">
+    <title>N予備-CHARALENS</title>
+    <script>
+      window.jQuery = window.$ = require('./jquery-3.3.1.min.js');
+    </script>
+    <style>
+        body{
+            font-family: YuGothic,serif;
+        }
+        div{
+            margin-bottom: 3em;
+        }
+        #main{
+            width: 90%;
+            margin-left: 5%;
+            margin-right: 5%;
+        }
+        #doc{
+            display: inline-block;
+            width: 45%;
+            border-right: black solid 1px;
+            margin-right: 2%;
+        }
+        #mp4{
+            display: inline-block;
+            width: 45%;
+            border-left: black solid 1px;
+        }
+        #seekArea{
+            border: black solid 1px;
+        }
+        #seek{
+            width: 75%;
+        }
+        #state{
+            display: inline-block;
+            width: 6%;
+        }
+    </style>
+</head>
+<body>
+<div id="main">
+    <div id="course"></div>
+    <div id="capture"></div>
+    <div id="seekArea">
+        <span id="state">▶　　　</span>
+        <label>
+            <input id="seek" type="range" value="0" min="0" max="0">
+        </label>
+        <span id="seekVal">
+            <span>0</span>
+            /
+            <span>0</span>
+            s
+        </span>
+    </div>
+    <div id="doc">
+        <p>教材</p>
+        <hr>
+        <ol></ol>
+    </div>
+    <div id="mp4">
+        <p>動画</p>
+        <hr>
+        <ol></ol>
+    </div>
+</div>
+<script>
+  const {ipcRenderer} = require('electron');
+  const itemOrigin = (() => {/*
+  <li>
+    <p></p>
+    <a class="browser">Browser</a>
+    <a class="hololens">HoloLens</a>
+  </li>
+  */}).toString().match(/\/\*([^]*)\*\//)[1];
+  let map = {};
+  let max = 0;
+  let state = 0; // 1:playing, 0:pause
+  const stateWord = ['▶', 'STOP'];
+
+  const browserDoc = (docId) => {
+    ipcRenderer.send('browserDoc', 'https://www.nnn.ed.nico/contents/guides/1453/content');
+  };
+
+  const hololensDoc = (docId) => {
+
+  };
+
+  const browserMp4 = (mp4Id) => {
+    ipcRenderer.send('browserMp4', 'https://www.nnn.ed.nico/lessons/482526097');
+  };
+
+  const hololensMp4 = (mp4Id) => {
+    max = map['course']['170']['capture']['2235']['mp4'][mp4Id]['second'];
+    $('#seekVal>span:eq(1)').text(max);
+    $('#seek').prop('max', max);
+  };
+
+  $('#seek').change(() => {
+    ipcRenderer.send('seek', $('#seek').val());
+    $('#seekVal>span:eq(0)').text($('#seek').val());
+  });
+
+  $('#state').click(() => {
+    state = (state === 0) ? 1 : 0;
+    ipcRenderer.send('state', state);
+    $('#state').text(stateWord[state]);
+  });
+
+  ipcRenderer.on('outState', (event, outState) => {
+    if(state === stateWord.indexOf(outState)) return;
+    // $('#state').click();
+  });
+
+  setInterval(() => {
+    if(state === 0 || parseFloat($('#seek').val()) > max) return; //pause
+    $('#seek').val(parseFloat($('#seek').val()) + 1);
+    ipcRenderer.send('seek', $('#seek').val());
+    $('#seekVal>span:eq(0)').text($('#seek').val());
+  }, 1000);
+
+  ipcRenderer.send('map');
+  ipcRenderer.on('mapCatch', (event, arg) => {
+    map = JSON.parse(arg);
+    $('#course').text(map['course']['170']['title']);
+    $('#capture').text(map['course']['170']['capture']['2235']['title']);
+    for(let docId in map['course']['170']['capture']['2235']['doc']){
+      let item = $(itemOrigin);
+      item.find('p').text(map['course']['170']['capture']['2235']['doc'][docId]['title']);
+      item.find('.browser').prop('href', `javascript:browserDoc(${docId});`);
+      item.find('.hololens').prop('href', `javascript:hololensDoc(${docId});`);
+      $('#doc').append(item);
+    }
+    for(let mp4Id in map['course']['170']['capture']['2235']['mp4']){
+      let item = $(itemOrigin);
+      item.find('p').text(map['course']['170']['capture']['2235']['mp4'][mp4Id]['title']);
+      item.find('.browser').prop('href', `javascript:browserMp4(${mp4Id});`);
+      item.find('.hololens').prop('href', `javascript:hololensMp4(${mp4Id});`);
+      $('#mp4').append(item);
+    }
+  });
+</script>
+</body>
